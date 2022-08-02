@@ -48,7 +48,7 @@ app.post('/api/users/:_id/exercises', (req, res) => {
   console.log('POST /api/users/:_id/exercises')
   const params = req.params
   const body = req.body
-  console.log(body)
+  //console.log(body)
   
   const user = users.find(user => user["_id"] === params["_id"])
 
@@ -83,20 +83,74 @@ app.get('/api/users', (req, res) => {
 app.get('/api/users/:_id/logs', (req, res) => {
   console.log('GET /api/users/:_id/logs')
   const {_id} = req.params
-  const query = req.query
-
+  const {from, to, limit} = req.query
+  const fromDate = from ? new Date(from) : undefined
+  const toDate = to ? new Date(to) : undefined
+  //console.log("query: ",Object.keys(req.query).length === 0)
+  console.log("query: ",req.query)
+  
   const user = users.find(user => user["_id"] === _id)
 
   if (!user)
-    throw new Error(`CastError: Cast to ObjectId failed for value  ${body[":_id"]} (type string) at path "_id" for model "Users"`)  
+    throw new Error(`CastError: Cast to ObjectId failed for value  ${user["_id"]} (type string) at path "_id" for model "Users"`)  
   
   const userExercises = exercises.filter(e => e["_id"] === _id)
 
+  let fromTo = []
+  let cont = 0
+  // !fromDate && !toDate && !limit
+  if (Object.keys(req.query).length === 0) {
+    console.log('SIN QUERY')
+    userExercises.map(e => {
+      fromTo.push(e)
+    })
+  } else {
+    console.log('CON QUERY')
+    userExercises.map(e => {
+      const date = new Date(e.date)
+      // limite
+      if (limit) {
+        console.log('CON LIMIT')
+        if (cont < limit) {
+          // fecha y limite
+          if (fromDate && toDate) {
+            console.log('CON FROM || TO: ', fromDate, toDate)
+            if (date.valueOf() >= fromDate && date.valueOf() <= toDate.valueOf()) {
+              fromTo.push(e)
+              ++cont
+            }          
+          } else {
+            console.log('SOLO LIMIT')
+            // solo limite
+            fromTo.push(e)
+            ++cont
+          }          
+        }
+      } else {
+        console.log('SIN LIMIT')
+        // sin limite, solo fecha
+        if (fromDate || toDate) {
+          console.log('SIN LIMIT, CON FECHA')
+          
+          if (date.valueOf() >= fromDate && date.valueOf() <= toDate.valueOf()) {
+            fromTo.push(e)
+          }          
+        } else {
+          console.log('SIN LIMIT, SIN FECHA')
+          // sin limite, sin fecha
+          fromTo.push(e)
+        }
+      }
+    })
+  }
+
+  console.log("fromTo: ", fromTo)
+
   const logs = {
     username: user.username,
-    count: userExercises.length,
+    count: fromTo.length,
     _id: user["_id"],
-    log: userExercises.map(e => {
+    log: fromTo.map(e => {
       let obj = {}
       obj.description = e.description
       obj.duration = e.duration
@@ -104,6 +158,7 @@ app.get('/api/users/:_id/logs', (req, res) => {
       return obj
     })
   }
+  console.log("logs: ", logs)
   
   res.send(logs)
 })
